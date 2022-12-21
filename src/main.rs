@@ -45,7 +45,8 @@ fn draw_map(map : &Map, ui : &egui::Ui) {
             let color = tile_to_color(tile);
             painter.rect_filled(rect, 1.0, color);
 
-            if tile.units > 0 {
+            if tile.units != 0 {
+                let units = tile.units.abs();
                 let bot_color;
                 if tile.owner == TileOwner::Me {
                     bot_color = Color32::LIGHT_BLUE;
@@ -53,7 +54,7 @@ fn draw_map(map : &Map, ui : &egui::Ui) {
                     bot_color = Color32::LIGHT_RED;
                 }
                 painter.circle_filled(pos, tile_size / 2.0 * 0.8, bot_color);
-                painter.debug_text(pos, Align2::CENTER_CENTER, Color32::BLACK, format!("{}", tile.units));
+                painter.debug_text(pos, Align2::CENTER_CENTER, Color32::BLACK, format!("{}", units));
             }
         }
     }

@@ -31,6 +31,31 @@ impl Default for Tile {
     }
 }
 
+pub struct MoveAction {
+    pub amount : u32,
+    pub fromX : u32,
+    pub fromY : u32,
+    pub toX : u32,
+    pub toY : u32
+}
+
+pub struct SpawnAction {
+    pub amount : u32,
+    pub x : u32,
+    pub y : u32
+}
+
+pub struct BuildAction {
+    pub x : u32,
+    pub y : u32
+}
+
+pub enum Action {
+    Move(MoveAction),
+    Spawn(SpawnAction),
+    Build(BuildAction)
+}
+
 pub struct Map {
     pub data : Vec<Tile>,
     pub w : u32,
@@ -39,7 +64,44 @@ pub struct Map {
     pub enemy_scrap : i32
 }
 
+
 impl Map {
+
+    pub fn next_turn(&mut self, my_actions : &Vec<Action>, enemy_actions : &Vec<Action>) {
+        //build
+        for a in my_actions.iter() {
+            if self.my_scrap < 10 {
+                break;
+            }
+            if let Action::Build(build) = a {
+                let mut tile = &mut self.data[(build.y * self.w + build.x) as usize];
+                if tile.owner == TileOwner::Me && tile.units == 0 {
+                    tile.recycler = true;
+                    self.my_scrap -= 10;
+                }
+            }
+        }
+
+        for a in enemy_actions.iter() {
+            if self.enemy_scrap < 10 {
+                break;
+            }
+            if let Action::Build(build) = a {
+                let mut tile = &mut self.data[(build.y * self.w + build.x) as usize];
+                if tile.owner == TileOwner::Enemy && tile.units == 0 {
+                    tile.recycler = true;
+                    self.enemy_scrap -= 10;
+                }
+            }
+        }
+
+        //move
+
+        //perturn scrap increase
+        self.my_scrap += 10;
+        self.enemy_scrap += 10;
+    }
+
     pub fn load(data : String) -> Self {
         let mut lines = data.split(';');
 
@@ -57,7 +119,7 @@ impl Map {
                 let inputs = lines.next().unwrap().split(' ').collect::<Vec<&str>>();
                 let scrap_amount = parse_input!(inputs[0], i32);
                 let owner = parse_input!(inputs[1], i32); // 1 = me, 0 = foe, -1 = neutral
-                let units = parse_input!(inputs[2], i32);
+                let mut units = parse_input!(inputs[2], i32);
                 let recycler = parse_input!(inputs[3], i32);
                 let can_build = parse_input!(inputs[4], i32);
                 let can_spawn = parse_input!(inputs[5], i32);
@@ -70,6 +132,10 @@ impl Map {
                     tile_owner = TileOwner::No;
                 } else  {
                     tile_owner = TileOwner::Enemy;
+                }
+
+                if tile_owner ==  TileOwner::Enemy {
+                    units *= -1;
                 }
 
                 let tile = Tile {
@@ -98,5 +164,15 @@ impl Map {
         let mut data = String::new();
         file.read_to_string(&mut data);
         Map::load(data)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_load_map() {
+        Map::load(String::from_str("14 7;10 10;9 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;10 -1 0 0 0 0 0;6 -1 0 0 0 0 0;6 -1 0 0 0 0 0;10 -1 0 0 0 0 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;0 -1 0 0 0 0 0;6 -1 0 0 0 0 0;9 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;9 0 1 0 0 0 0;4 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;9 -1 0 0 0 0 0;0 -1 0 0 0 0 0;0 -1 0 0 0 0 0;9 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;9 -1 0 0 0 0 0;9 -1 0 0 0 0 0;9 -1 0 0 0 0 0;8 0 1 0 0 0 0;10 0 0 0 0 0 0;10 0 1 0 0 0 0;9 -1 0 0 0 0 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 1 1 0 0 1 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 0 1 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;9 -1 0 0 0 0 0;10 1 1 0 0 1 0;10 1 0 0 1 1 0;8 1 1 0 0 1 0;9 -1 0 0 0 0 0;9 -1 0 0 0 0 0;9 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;9 -1 0 0 0 0 0;0 -1 0 0 0 0 0;0 -1 0 0 0 0 0;9 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;4 -1 0 0 0 0 0;9 1 1 0 0 1 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;9 -1 0 0 0 0 0;6 -1 0 0 0 0 0;0 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;10 -1 0 0 0 0 0;6 -1 0 0 0 0 0;6 -1 0 0 0 0 0;10 -1 0 0 0 0 0;8 -1 0 0 0 0 0;4 -1 0 0 0 0 0;4 -1 0 0 0 0 0;8 -1 0 0 0 0 0;8 -1 0 0 0 0 0;6 -1 0 0 0 0 0;9 -1 0 0 0 0 0").unwrap());
     }
 }

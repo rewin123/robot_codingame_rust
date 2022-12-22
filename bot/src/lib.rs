@@ -259,13 +259,14 @@ impl Map {
                     self.data[idx].units -= move_amount;
                 }
             } else if let Action::Spawn(sp) = a {
-                let cost = sp.amount as i32 * 10;
-                if self.my_scrap >= cost {
-                    let tile = &mut self.data[(sp.x * self.w + sp.y) as usize];
-                    tile.delta_units += sp.amount as i32;
-                    self.my_scrap -= cost;
+                if sp.amount > 0 {
+                    let cost = sp.amount as i32 * 10;
+                    if self.my_scrap >= cost {
+                        let tile = &mut self.data[(sp.x * self.w + sp.y) as usize];
+                        tile.delta_units += sp.amount as i32;
+                        self.my_scrap -= cost;
+                    }
                 }
-                
             }
         }
 
@@ -280,6 +281,15 @@ impl Map {
                         &TVec2::new(mv.toX as usize, mv.toY as usize));
                     self.data[dst.y * self.w as usize + dst.x].delta_units -= move_amount;
                     self.data[idx].units += move_amount;
+                }
+            } else if let Action::Spawn(sp) = a {
+                if sp.amount > 0 {
+                    let cost = sp.amount as i32 * 10;
+                    if self.enemy_scrap >= cost {
+                        let tile = &mut self.data[(sp.x * self.w + sp.y) as usize];
+                        tile.delta_units -= sp.amount as i32;
+                        self.enemy_scrap -= cost;
+                    }
                 }
             }
         }

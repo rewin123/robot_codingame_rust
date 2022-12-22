@@ -37,21 +37,21 @@ impl Default for Tile {
 
 pub struct MoveAction {
     pub amount : u32,
-    pub fromX : u32,
-    pub fromY : u32,
-    pub toX : u32,
-    pub toY : u32
+    pub fromX : usize,
+    pub fromY : usize,
+    pub toX : usize,
+    pub toY : usize
 }
 
 pub struct SpawnAction {
     pub amount : u32,
-    pub x : u32,
-    pub y : u32
+    pub x : usize,
+    pub y : usize
 }
 
 pub struct BuildAction {
-    pub x : u32,
-    pub y : u32
+    pub x : usize,
+    pub y : usize
 }
 
 pub enum Action {
@@ -200,8 +200,10 @@ impl Pathfinder {
 
 pub struct Map {
     pub data : Vec<Tile>,
-    pub w : u32,
-    pub h : u32,
+    pub recycle_me : Vec<bool>,
+    pub recycle_enemy : Vec<bool>,
+    pub w : usize,
+    pub h : usize,
     pub my_scrap : i32,
     pub enemy_scrap : i32,
     pub pathfinder : Pathfinder
@@ -212,6 +214,101 @@ impl Map {
 
     pub fn next_turn(&mut self, my_actions : &Vec<Action>, enemy_actions : &Vec<Action>) {
         //build
+        self.build(my_actions, enemy_actions);
+        self.move_spawn(my_actions, enemy_actions);
+        self.tile_process();
+        self.recycler_process();
+
+        //perturn scrap increase
+        self.my_scrap += 10;
+        self.enemy_scrap += 10;
+    }
+
+    fn recycler_process(&mut self) {
+        self.recycle_me.fill(false);
+        self.recycle_enemy.fill(false);
+
+        let dw = self.w - 1;
+        let dh = self.h - 1;
+
+        for y in 0..self.h {
+            for x in 0..self.w {
+                let idx = y * self.w + x;
+                if self.data[idx].recycler {
+                    if self.data[idx].owner == TileOwner::Me {
+                        self.recycle_me[idx] = true;
+                        if x > 0 {
+                            self.recycle_me[idx - 1] = true;
+                        }
+                        if x < dw {
+                            self.recycle_me[idx + 1] = true;
+                        }
+                        if y > 0 {
+                            self.recycle_me[idx - self.w] = true;
+                        }
+                        if y < dh {
+                            self.recycle_me[idx + self.w] = true;
+                        }
+                    } else {
+                        self.recycle_enemy[idx] = true;
+                        if x > 0 {
+                            self.recycle_enemy[idx - 1] = true;
+                        }
+                        if x < dw {
+                            self.recycle_enemy[idx + 1] = true;
+                        }
+                        if y > 0 {
+                            self.recycle_enemy[idx - self.w] = true;
+                        }
+                        if y < dh {
+                            self.recycle_enemy[idx + self.w] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        for idx in 0..self.data.len() {
+            let mut tile = &mut self.data[idx];
+            let r_me = self.recycle_me[idx];
+            let r_enemy = self.recycle_enemy[idx];
+            if r_me || r_enemy {
+                if tile.scrap_amount > 0 {
+                    tile.scrap_amount -= 1;
+                    if r_me {
+                        self.my_scrap += 1;
+                    }
+                    if r_enemt {
+                        self.enemy_scrap += 1;
+                    }
+                    if tile.scrap_amount == 0 {
+                        tile.owner = TileOwner::No;
+                        tile.units = 0;
+                        tile.delta_units = 0;
+                        tile.recycler = false;
+                    }
+                }
+
+            }
+        }
+    }
+
+
+    fn tile_process(&mut self) {
+        for idx in 0..self.data.len() {
+            let mut tile = &mut self.data[idx];
+            tile.units += tile.delta_units;
+            tile.delta_units = 0;
+
+            if tile.units > 0 {
+                tile.owner = TileOwner::Me;
+            } else if tile.units < 0 {
+                tile.owner = TileOwner::Enemy;
+            }
+        }
+    }
+
+    fn build(&mut self, my_actions : &Vec<Action>, enemy_actions : &Vec<Action>) {
         for a in my_actions.iter() {
             if self.my_scrap < 10 {
                 break;
@@ -237,7 +334,9 @@ impl Map {
                 }
             }
         }
+    }
 
+    fn move_spawn(&mut self, my_actions : &Vec<Action>, enemy_actions : &Vec<Action>) {
         //setup walls
         for idx in 0..self.data.len() {
             let tile = &self.data[idx];
@@ -249,11 +348,11 @@ impl Map {
         for a in my_actions.iter() {
             if let Action::Move(mv) = a {
                 let idx = (mv.fromX * self.w + mv.fromY) as usize;
-               
+
                 if self.data[idx].owner == TileOwner::Me && self.data[idx].units > 0 {
                     let move_amount = self.data[idx].units.min(mv.amount as i32);
                     let dst = self.pathfinder.find_path(
-                        &TVec2::new(mv.fromX as usize, mv.fromY as usize), 
+                        &TVec2::new(mv.fromX as usize, mv.fromY as usize),
                         &TVec2::new(mv.toX as usize, mv.toY as usize));
                     self.data[dst.y * self.w as usize + dst.x].delta_units += move_amount;
                     self.data[idx].units -= move_amount;
@@ -273,11 +372,11 @@ impl Map {
         for a in enemy_actions.iter() {
             if let Action::Move(mv) = a {
                 let idx = (mv.fromX * self.w + mv.fromY) as usize;
-               
+
                 if self.data[idx].owner == TileOwner::Enemy && self.data[idx].units < 0 {
                     let move_amount = (-self.data[idx].units).min(mv.amount as i32);
                     let dst = self.pathfinder.find_path(
-                        &TVec2::new(mv.fromX as usize, mv.fromY as usize), 
+                        &TVec2::new(mv.fromX as usize, mv.fromY as usize),
                         &TVec2::new(mv.toX as usize, mv.toY as usize));
                     self.data[dst.y * self.w as usize + dst.x].delta_units -= move_amount;
                     self.data[idx].units += move_amount;
@@ -293,10 +392,6 @@ impl Map {
                 }
             }
         }
-
-        //perturn scrap increase
-        self.my_scrap += 10;
-        self.enemy_scrap += 10;
     }
 
     pub fn load(data : String) -> Self {
@@ -348,10 +443,14 @@ impl Map {
 
         }
 
+        let data_len = data.len();
+
         Self {
             data,
-            w : width,
-            h : height,
+            recycle_me : vec![false; data_len],
+            recycle_enemy : vec![false; data_len],
+            w : width as usize,
+            h : height as usize,
             my_scrap,
             enemy_scrap,
             pathfinder : Pathfinder::new(width as usize, height as usize)

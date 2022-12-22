@@ -1,3 +1,5 @@
+pub mod net;
+
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::{path::Path, io::Read};
@@ -278,7 +280,7 @@ impl Map {
                     if r_me {
                         self.my_scrap += 1;
                     }
-                    if r_enemt {
+                    if r_enemy {
                         self.enemy_scrap += 1;
                     }
                     if tile.scrap_amount == 0 {

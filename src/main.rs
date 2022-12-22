@@ -1,6 +1,8 @@
 use eframe::egui;
 use egui::*;
 use bot::*;
+use robot_codingame_rust::*;
+
 fn main() {
 
     let options = eframe::NativeOptions::default();
@@ -11,8 +13,22 @@ fn main() {
     );
 }
 
-struct Content {
+
+
+struct ShowGameMap {
     map : Map
+}
+
+struct Content {
+    scene : Box<dyn Scene>
+}
+
+impl Default for Content {
+    fn default() -> Self {
+        Self {
+            scene : Box::new(GeneticScene::default())
+        }
+    }
 }
 
 fn tile_to_color(tile : &Tile) -> Color32 {
@@ -60,7 +76,7 @@ fn draw_map(map : &Map, ui : &egui::Ui) {
     }
 }
 
-impl Default for Content {
+impl Default for ShowGameMap {
     fn default() -> Self {
         let map = Map::load_file("start_map.txt");
 
@@ -72,8 +88,6 @@ impl Default for Content {
 
 impl eframe::App for Content {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            draw_map(&self.map, ui);
-        });
+        self.scene.update(ctx);
     }
 }

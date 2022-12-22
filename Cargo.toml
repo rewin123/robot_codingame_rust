@@ -9,6 +9,8 @@ edition = "2021"
 egui = "*"
 eframe = "*"
 bot = {path = "bot"}
+rand = "*"
+rayon = "*"
 
 [workspace]
 members = [
